@@ -25,6 +25,8 @@ const CmdRemove = "remove"
 const CmdAdd = "add"
 const CmdQuery = "query"
 
+const maxImageSize = 5000000
+
 const imdbPreamble = "https://www.imdb.com/title/"
 
 func AddEntry(e *Entry) int {
@@ -70,9 +72,43 @@ func getMovie(s string) (int, *Entry) {
 }
 
 func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
-	c := fmt.Sprintf("%s (%d)\nIMDb: %s%s", m.Title, m.Year, imdbPreamble, m.ID)
-	msg := tgbotapi.NewPhotoShare(u.Message.Chat.ID, m.Cover)
-	msg.Caption = c
+	if m == nil {
+		msg := tgbotapi.NewMessage(u.Message.Chat.ID, "Could not find requested query!")
+		msg.ReplyToMessageID = u.Message.MessageID
+		bot.Send(msg)
+		return
+	}
+	var cbytes []byte
+	var icover tgbotapi.FileBytes
+	scover := m.Cover
+	byFile := true
+	img, n, err := GetImage(m.Cover)
+	if err != nil || n < maxImageSize {
+		byFile = false
+		goto send
+	}
+	log.Printf("Compressing cover...")
+	for n > maxImageSize {
+		log.Printf("  %d/%d", n, maxImageSize)
+		img, n = Resize(img)
+	}
+	cbytes, err = Encode(img)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		byFile = false
+		goto send
+	}
+	icover = tgbotapi.FileBytes{"cover", cbytes}
+send:
+	var msg tgbotapi.PhotoConfig
+	if byFile {
+		log.Printf("Sending cover by file.")
+		msg = tgbotapi.NewPhotoUpload(u.Message.Chat.ID, icover)
+	} else {
+		log.Printf("Sending cover by URL.")
+		msg = tgbotapi.NewPhotoShare(u.Message.Chat.ID, scover)
+	}
+	msg.Caption = fmt.Sprintf("%s (%d)\nIMDb: %s%s", m.Title, m.Year, imdbPreamble, m.ID)
 	msg.ReplyToMessageID = u.Message.MessageID
 	bot.Send(msg)
 }

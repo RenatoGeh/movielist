@@ -43,13 +43,24 @@ func convert(cnt string) *Entry {
 		log.Printf("Error: %v", err)
 		return nil
 	}
+	if query == nil || query["d"] == nil {
+		return nil
+	}
+	log.Printf("Fetching JSON...\n%v", query)
 	entries := query["d"].([]interface{})
 	first := entries[0].(map[string]interface{})
 
 	title := first[titleKey].(string)
+	log.Printf("Title: %s", title)
 	year := int(first[yearKey].(float64))
+	log.Printf("Year: %d", year)
+	if first[coverKey] == nil {
+		return nil
+	}
 	cover := first[coverKey].([]interface{})[0].(string)
+	log.Printf("Cover URL: %s", cover)
 	id := first[idKey].(string)
+	log.Printf("IMDb ID: %s", id)
 	return &Entry{title, year, cover, id}
 }
 
