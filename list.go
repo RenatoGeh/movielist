@@ -29,10 +29,23 @@ const maxImageSize = 5000000
 
 const imdbPreamble = "https://www.imdb.com/title/"
 
+func containsMovie(e *Entry) bool {
+	for _, m := range movies {
+		if e.Title == m.Title && e.Year == m.Year {
+			return true
+		}
+	}
+	return false
+}
+
 func AddEntry(e *Entry) int {
-	movies = append(movies, *e)
-	saveMovies()
-	return len(movies) - 1
+	if !containsMovie(e) {
+		movies = append(movies, *e)
+		saveMovies()
+		return len(movies) - 1
+	} else {
+		return -1
+	}
 }
 
 func Add(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
@@ -41,7 +54,12 @@ func Add(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	if e == nil {
 		return
 	}
-	AddEntry(e)
+	if AddEntry(e) < 0 {
+		msg := tgbotapi.NewMessage(u.Message.Chat.ID, "Movie is already in our to-watch list!")
+		msg.ReplyToMessageID = u.Message.MessageID
+		bot.Send(msg)
+		return
+	}
 	preview(bot, u, e)
 }
 
@@ -66,6 +84,9 @@ func getMovie(s string) (int, *Entry) {
 	i, err := strconv.Atoi(s)
 	if err != nil {
 		log.Printf("Error: %v", err)
+		return 0, nil
+	}
+	if i < 0 || i >= len(movies) {
 		return 0, nil
 	}
 	return i, &movies[i]
