@@ -48,20 +48,25 @@ func convert(cnt string) *Entry {
 	}
 	log.Printf("Fetching JSON...\n%v", query)
 	entries := query["d"].([]interface{})
-	first := entries[0].(map[string]interface{})
-
-	title := first[titleKey].(string)
-	log.Printf("Title: %s", title)
-	year := int(first[yearKey].(float64))
-	log.Printf("Year: %d", year)
-	if first[coverKey] == nil {
-		return nil
+	for i := range entries {
+		e := entries[i].(map[string]interface{})
+		title := e[titleKey].(string)
+		log.Printf("Title: %s", title)
+		if _, exists := e[yearKey]; !exists {
+			continue
+		}
+		year := int(e[yearKey].(float64))
+		log.Printf("Year: %d", year)
+		if e[coverKey] == nil {
+			continue
+		}
+		cover := e[coverKey].([]interface{})[0].(string)
+		log.Printf("Cover URL: %s", cover)
+		id := e[idKey].(string)
+		log.Printf("IMDb ID: %s", id)
+		return &Entry{title, year, cover, id}
 	}
-	cover := first[coverKey].([]interface{})[0].(string)
-	log.Printf("Cover URL: %s", cover)
-	id := first[idKey].(string)
-	log.Printf("IMDb ID: %s", id)
-	return &Entry{title, year, cover, id}
+	return nil
 }
 
 // Retrieve returns an Entry from IMDb's Search Suggestions API.
