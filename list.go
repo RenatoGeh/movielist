@@ -8,22 +8,34 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Entry struct {
-	Title string
-	Year  int
-	Cover string
-	ID    string
+	Title     string
+	Year      int
+	Cover     string
+	ID        string
+	WatchedBy []string
 }
 
-var movies []Entry
+var (
+	movies         []Entry
+	undo_movies    []Entry
+	watched_movies []Entry
+)
 
-const CmdAll = "all"
-const CmdShow = "show"
-const CmdRemove = "remove"
-const CmdAdd = "add"
-const CmdQuery = "query"
+const (
+	CmdAll     = "all"
+	CmdShow    = "show"
+	CmdRemove  = "remove"
+	CmdAdd     = "add"
+	CmdQuery   = "query"
+	CmdWatch   = "watch"
+	CmdUnwatch = "unwatch"
+	CmdRestore = "restore"
+	CmdWatched = "watched"
+)
 
 const maxImageSize = 5000000
 
@@ -130,6 +142,12 @@ send:
 		msg = tgbotapi.NewPhotoShare(u.Message.Chat.ID, scover)
 	}
 	msg.Caption = fmt.Sprintf("%s (%d)\nIMDb: %s%s", m.Title, m.Year, imdbPreamble, m.ID)
+	if len(m.WatchedBy) != 0 {
+		msg.Caption += fmt.Sprintf("\nWatched by (%d):", len(m.WatchedBy))
+		for _, usr := range m.WatchedBy {
+			msg.Caption += fmt.Sprintf(" @%s", usr)
+		}
+	}
 	msg.ReplyToMessageID = u.Message.MessageID
 	bot.Send(msg)
 }
@@ -155,10 +173,128 @@ func Remove(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	if m == nil {
 		return
 	}
-	movies = append(movies[0:i], movies[i+1:len(movies)]...)
+	movies = append(movies[:i], movies[i+1:]...)
 	s := fmt.Sprintf("Removing %s (%d) from movie list...", m.Title, m.Year)
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
+	bot.Send(msg)
+}
+
+func extractIndices(whole string) ([]int, error) {
+	args := strings.Fields(whole)
+	L := make([]int, len(args))
+	for i, s := range args {
+		var err error
+		L[i], err = strconv.Atoi(s)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			return nil, err
+		}
+	}
+	return L, nil
+}
+
+func checkWatched() string {
+	var msg string
+	var nlist []Entry
+	undo_movies = []Entry{}
+	for _, m := range movies {
+		if len(m.WatchedBy) >= len(allUsers) {
+			msg += fmt.Sprintf("  %s (%d)\n", m.Title, m.Year)
+			undo_movies = append(undo_movies, m)
+			watched_movies = append(watched_movies, m)
+		} else {
+			nlist = append(nlist, m)
+		}
+	}
+	movies = nlist
+	if msg != "" {
+		msg = fmt.Sprintf("I've removed the following movies because everyone has watched them!\n%s"+
+			"To undo these changes, tell me to `/restore`.", msg)
+	}
+	return msg
+}
+
+func Watch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	usr := u.Message.From.UserName
+	W, err := extractIndices(u.Message.CommandArguments())
+	if err != nil {
+		return
+	}
+	var change bool
+	for _, w := range W {
+		if w >= 0 && w < len(movies) {
+			var in bool
+			L := movies[w].WatchedBy
+			for _, name := range L {
+				if name == usr {
+					in = true
+					break
+				}
+			}
+			if !in {
+				movies[w].WatchedBy = append(movies[w].WatchedBy, usr)
+				change = true
+			}
+		}
+	}
+	if change {
+		if c := checkWatched(); c != "" {
+			msg := tgbotapi.NewMessage(u.Message.Chat.ID, c)
+			msg.ReplyToMessageID = u.Message.MessageID
+			msg.ParseMode = tgbotapi.ModeMarkdown
+			bot.Send(msg)
+		}
+	}
+}
+
+func Unwatch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	usr := u.Message.From.UserName
+	W, err := extractIndices(u.Message.CommandArguments())
+	if err != nil {
+		return
+	}
+	for _, w := range W {
+		if w >= 0 && w < len(movies) {
+			m := &movies[w]
+			i := -1
+			for j, watcher := range m.WatchedBy {
+				if watcher == usr {
+					i = j
+					break
+				}
+			}
+			if i >= 0 {
+				m.WatchedBy = append(m.WatchedBy[:i], m.WatchedBy[i+1:]...)
+			}
+		}
+	}
+}
+
+func Restore(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	if undo_movies != nil {
+		for _, m := range undo_movies {
+			m.WatchedBy = []string{}
+			movies = append(movies, m)
+		}
+		watched_movies = append(watched_movies[:len(watched_movies)-len(undo_movies)])
+		undo_movies = nil
+	}
+}
+
+func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	var s string
+	if len(watched_movies) == 0 {
+		s = "You have not watched any movies yet! :("
+	} else {
+		s = "Watched movie list:\n"
+		for i, m := range watched_movies {
+			s += fmt.Sprintf("  %d. %s (%d)\n", i, m.Title, m.Year)
+		}
+	}
+	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
+	msg.ReplyToMessageID = u.Message.MessageID
+	msg.ParseMode = tgbotapi.ModeMarkdown
 	bot.Send(msg)
 }
 

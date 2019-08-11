@@ -64,7 +64,7 @@ func convert(cnt string) *Entry {
 		log.Printf("Cover URL: %s", cover)
 		id := e[idKey].(string)
 		log.Printf("IMDb ID: %s", id)
-		return &Entry{title, year, cover, id}
+		return &Entry{title, year, cover, id, []string{}}
 	}
 	return nil
 }

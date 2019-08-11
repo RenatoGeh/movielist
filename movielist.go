@@ -17,6 +17,9 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		"  `/remove i`: removes `i`-th item from list\n" +
 		"  `/add title`: adds top search result of `title` to list\n" +
 		"  `/query title`: queries IMDb for `title`\n" +
+		"  `/watched i1 i2 ...`: mark all `ij` instances as `watched` by you\n" +
+		"  `/unwatch i1 i2 ...`: mark all `ij` instances as `unwatched` by you\n" +
+		"  `/restore`: restore last automatically removed item of the list\n" +
 		"**Important:** before `/add`-ing, `/query` first to make sure it's the right movie!"
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
@@ -26,6 +29,7 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 
 func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	fmt.Printf("[%s|%s] %s\n", u.Message.Chat.Title, u.Message.From.UserName, u.Message.Text)
+	RegisterUser(u)
 	if u.Message.IsCommand() {
 		cmd := u.Message.Command()
 		switch cmd {
@@ -47,6 +51,18 @@ func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		case CmdHelp:
 			log.Printf("Command /help activated")
 			Help(bot, u)
+		case CmdWatch:
+			log.Printf("Command /watch activated")
+			Watch(bot, u)
+		case CmdUnwatch:
+			log.Printf("Command /unwatch activated")
+			Unwatch(bot, u)
+		case CmdRestore:
+			log.Printf("Command /restore activated")
+			Restore(bot, u)
+		case CmdWatched:
+			log.Printf("Command /watched activated")
+			Watched(bot, u)
 		}
 	}
 }
