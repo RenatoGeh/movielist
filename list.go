@@ -6,6 +6,7 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ const (
 	CmdUnwatch = "unwatch"
 	CmdRestore = "restore"
 	CmdWatched = "watched"
+	CmdDraw    = "draw"
 )
 
 const maxImageSize = 5000000
@@ -296,6 +298,50 @@ func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	msg.ReplyToMessageID = u.Message.MessageID
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	bot.Send(msg)
+}
+
+func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	args := u.Message.CommandArguments()
+	var n int
+	if args != "" {
+		L, err := extractIndices(args)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			return
+		}
+		n = L[0]
+	} else {
+		n = 1
+	}
+	type entryIndex struct {
+		e Entry
+		i int
+	}
+	var M []entryIndex
+	G := make(map[int]bool)
+	for i := 0; i < n; i++ {
+		for {
+			k := rand.Intn(len(movies))
+			if _, e := G[k]; !e {
+				G[k] = true
+				M = append(M, entryIndex{movies[k], k})
+				break
+			}
+		}
+	}
+	log.Println(M)
+	if M != nil {
+		s := "I've chosen these movies for you to watch. Have fun! :)\n"
+		for i, m := range M {
+			s += fmt.Sprintf("  %d. %s (%d) {%d}\n", i, m.e.Title, m.e.Year, m.i)
+		}
+		s += "You can find out more about each movie with `/show i` where `i` is the number in " +
+			"{curly braces}. Don't forget to `/watch i` when you're finished watching movie `i`!"
+		msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
+		msg.ReplyToMessageID = u.Message.MessageID
+		msg.ParseMode = tgbotapi.ModeMarkdown
+		bot.Send(msg)
+	}
 }
 
 func saveMovies() {
