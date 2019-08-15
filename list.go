@@ -313,6 +313,9 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	} else {
 		n = 1
 	}
+	if n > len(movies) {
+		n = len(movies)
+	}
 	type entryIndex struct {
 		e Entry
 		i int
@@ -344,14 +347,14 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	}
 }
 
-func saveMovies() {
-	f, err := os.Create("movies.json")
+func saveList(filename string, list []Entry) {
+	f, err := os.Create(filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
 	defer f.Close()
-	b, err := json.Marshal(movies)
+	b, err := json.Marshal(list)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -362,8 +365,14 @@ func saveMovies() {
 	}
 }
 
-func loadMovies() {
-	f, err := os.Open("movies.json")
+func saveMovies() {
+	saveList("movies.json", movies)
+	saveList("watched.json", watched_movies)
+	saveList("undo.json", undo_movies)
+}
+
+func loadList(filename string, list *[]Entry) {
+	f, err := os.Open(filename)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -382,8 +391,14 @@ func loadMovies() {
 		log.Printf("Error: %v", err)
 		return
 	}
-	err = json.Unmarshal(b, &movies)
+	err = json.Unmarshal(b, list)
 	if err != nil {
 		log.Printf("Error: %v", err)
 	}
+}
+
+func loadMovies() {
+	loadList("movies.json", &movies)
+	loadList("watched.json", &watched_movies)
+	loadList("undo.json", &undo_movies)
 }
