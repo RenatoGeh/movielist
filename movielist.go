@@ -101,6 +101,7 @@ func main() {
 	updates, err := bot.GetUpdatesChan(u)
 
 	loadMovies()
+	loadUsers()
 	for update := range updates {
 		if update.Message == nil {
 			continue
