@@ -175,8 +175,9 @@ func Remove(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	if m == nil {
 		return
 	}
+	r := movies[i]
 	movies = append(movies[:i], movies[i+1:]...)
-	s := fmt.Sprintf("Removing %s (%d) from movie list...", m.Title, m.Year)
+	s := fmt.Sprintf("Removing %s (%d) from movie list...", r.Title, r.Year)
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
 	bot.Send(msg)
