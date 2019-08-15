@@ -103,7 +103,7 @@ func getMovie(s string) (int, *Entry) {
 	if i < 0 || i >= len(movies) {
 		return 0, nil
 	}
-	return i, &movies[i]
+	return i, movies[i]
 }
 
 func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
