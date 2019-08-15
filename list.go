@@ -103,7 +103,7 @@ func getMovie(s string) (int, *Entry) {
 	if i < 0 || i >= len(movies) {
 		return 0, nil
 	}
-	return i, &movies[i]
+	return i, movies[i]
 }
 
 func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
@@ -171,15 +171,16 @@ func Show(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 }
 
 func Remove(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
-	i, m := getMovie(u.Message.CommandArguments())
-	if m == nil {
-		return
-	}
-	movies = append(movies[:i], movies[i+1:]...)
-	s := fmt.Sprintf("Removing %s (%d) from movie list...", m.Title, m.Year)
-	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
-	msg.ReplyToMessageID = u.Message.MessageID
-	bot.Send(msg)
+ i, m := getMovie(u.Message.CommandArguments())
+ if m == nil {
+  return
+ }
+ r := movies[i]
+ movies = append(movies[:i], movies[i+1:]...)
+ s := fmt.Sprintf("Removing %s (%d) from movie list...", r.Title, r.Year)
+ msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
+ msg.ReplyToMessageID = u.Message.MessageID
+ bot.Send(msg)
 }
 
 func extractIndices(whole string) ([]int, error) {
