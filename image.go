@@ -30,10 +30,17 @@ func GetImage(url string) (image.Image, int, error) {
 	return img, len(b), nil
 }
 
-func Resize(I image.Image) (image.Image, int) {
-	I = resize.Resize(uint(I.Bounds().Max.X/2), 0, I, resize.NearestNeighbor)
-	b, _ := Encode(I)
-	return I, len(b)
+func upperBound(x, ub uint) uint {
+	if x > ub {
+		return ub
+	}
+	return x
+}
+
+func Resize(I image.Image) (image.Image, int, []byte, error) {
+	I = resize.Resize(upperBound(uint(I.Bounds().Max.X/2), 1920), 0, I, resize.NearestNeighbor)
+	b, e := Encode(I)
+	return I, len(b), b, e
 }
 
 func Encode(I image.Image) ([]byte, error) {

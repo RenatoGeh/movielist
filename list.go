@@ -125,9 +125,9 @@ func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
 	log.Printf("Compressing cover...")
 	for n > maxImageSize {
 		log.Printf("  %d/%d", n, maxImageSize)
-		img, n = Resize(img)
+		img, n, cbytes, err = Resize(img)
+		log.Printf("  -- %d/%d", n, maxImageSize)
 	}
-	cbytes, err = Encode(img)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		byFile = false
