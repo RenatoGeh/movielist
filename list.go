@@ -289,6 +289,38 @@ func Restore(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 
 func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	var s string
+	if u.Message.CommandArguments() != "" {
+		uname := ToUsername(u)
+		_, e := User(uname)
+		if !e {
+			s = fmt.Sprintf("I don't know who %s is!", uname)
+			goto send
+		}
+		s = fmt.Sprintf("Movies watched by %s still in the to-watch list:\n", uname)
+		var c int
+		for i, m := range movies {
+			for _, w := range m.WatchedBy {
+				if strings.ToLower(w) == uname {
+					s += fmt.Sprintf("  %d. %s (%d) {%d}\n", c, m.Title, m.Year, i)
+					c++
+					break
+				}
+			}
+		}
+		s += fmt.Sprintf("Movies watched by %s in the watched list:\n", uname)
+		var d int
+		for _, m := range watched_movies {
+			for _, w := range m.WatchedBy {
+				if strings.ToLower(w) == uname {
+					s += fmt.Sprintf("  %d. %s (%d)\n", d, m.Title, m.Year)
+					d++
+					break
+				}
+			}
+		}
+		s += fmt.Sprintf("Total movies watched: %d", c+d)
+		goto send
+	}
 	if len(watched_movies) == 0 {
 		s = "You have not watched any movies yet! :("
 	} else {
@@ -297,6 +329,7 @@ func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 			s += fmt.Sprintf("  %d. %s (%d)\n", i, m.Title, m.Year)
 		}
 	}
+send:
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
 	msg.ParseMode = tgbotapi.ModeMarkdown

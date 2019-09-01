@@ -21,6 +21,7 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		"  `/unwatch i1 i2 ...`: mark all `ij` instances as `unwatched` by you\n" +
 		"  `/restore`: restore last automatically removed items of movie list\n" +
 		"  `/watched`: prints list of watched movies\n" +
+		"  `/watched username`: prints list of movies watched by username\n" +
 		"  `/draw n=1`: draws n movies at random (default n=1)\n" +
 		"  `/save`: force save everything\n" +
 		"**Important:** before `/add`-ing, `/query` first to make sure it's the right movie!"
