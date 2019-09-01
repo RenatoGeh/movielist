@@ -183,6 +183,7 @@ func Remove(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
 	bot.Send(msg)
+	saveMovies()
 }
 
 func extractIndices(whole string) ([]int, error) {
@@ -251,6 +252,7 @@ func Watch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 			bot.Send(msg)
 		}
 	}
+	saveMovies()
 }
 
 func Unwatch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
@@ -284,6 +286,7 @@ func Restore(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		}
 		watched_movies = append(watched_movies[:len(watched_movies)-len(undo_movies)])
 		undo_movies = nil
+		saveMovies()
 	}
 }
 
