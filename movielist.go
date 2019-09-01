@@ -22,6 +22,7 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		"  `/restore`: restore last automatically removed items of movie list\n" +
 		"  `/watched`: prints list of watched movies\n" +
 		"  `/draw n=1`: draws n movies at random (default n=1)\n" +
+		"  `/save`: force save everything\n" +
 		"**Important:** before `/add`-ing, `/query` first to make sure it's the right movie!"
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
@@ -68,6 +69,9 @@ func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		case CmdDraw:
 			log.Printf("Command /draw activated")
 			Draw(bot, u)
+		case CmdSave:
+			log.Printf("Command /save activated")
+			Save(bot, u)
 		}
 	}
 }

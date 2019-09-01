@@ -37,6 +37,7 @@ const (
 	CmdRestore = "restore"
 	CmdWatched = "watched"
 	CmdDraw    = "draw"
+	CmdSave    = "save"
 )
 
 const maxImageSize = 5000000
@@ -347,6 +348,11 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		msg.ParseMode = tgbotapi.ModeMarkdown
 		bot.Send(msg)
 	}
+}
+
+func Save(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	saveMovies()
+	saveUsers()
 }
 
 func saveList(filename string, list []Entry) {
