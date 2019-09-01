@@ -118,12 +118,12 @@ func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
 	scover := m.Cover
 	byFile := true
 	img, n, err := GetImage(m.Cover)
-	if err != nil || n < maxImageSize {
+	if err != nil || (n < maxImageSize && img.Bounds().Max.X <= 1920) {
 		byFile = false
 		goto send
 	}
 	log.Printf("Compressing cover...")
-	for n > maxImageSize {
+	for n > maxImageSize || img.Bounds().Max.X > 1920 {
 		log.Printf("  %d/%d", n, maxImageSize)
 		img, n, cbytes, err = Resize(img)
 		log.Printf("  -- %d/%d", n, maxImageSize)
@@ -135,6 +135,7 @@ func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
 	}
 	icover = tgbotapi.FileBytes{"cover", cbytes}
 send:
+	log.Printf("Image has bounds: %v", img.Bounds())
 	var msg tgbotapi.PhotoConfig
 	if byFile {
 		log.Printf("Sending cover by file.")
