@@ -72,6 +72,9 @@ func convert(cnt string) *Entry {
 // Retrieve returns an Entry from IMDb's Search Suggestions API.
 func Retrieve(query string) *Entry {
 	q := ascii(query)
+	if q == "" {
+		return nil
+	}
 	url := apiPreamble + strings.ToLower(string(q[0])) + "/" + url.PathEscape(query+".json")
 	r, err := http.Get(url)
 	if err != nil {
