@@ -6,9 +6,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime/debug"
 )
 
 const CmdHelp = "help"
+const MaxGCIterations = 10
+
+var gcIterations = 0
 
 func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	const s = "List of commands:\n" +
@@ -74,6 +78,10 @@ func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 			log.Printf("Command /save activated")
 			Save(bot, u)
 		}
+	}
+	gcIterations++
+	if gcIterations%MaxGCIterations == 0 {
+		debug.FreeOSMemory()
 	}
 }
 
