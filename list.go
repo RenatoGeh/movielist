@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -38,6 +39,7 @@ const (
 	CmdWatched = "watched"
 	CmdDraw    = "draw"
 	CmdSave    = "save"
+	CmdRanking = "ranking"
 )
 
 const maxImageSize = 5000000
@@ -445,4 +447,46 @@ func loadMovies() {
 	loadList("movies.json", &movies)
 	loadList("watched.json", &watched_movies)
 	loadList("undo.json", &undo_movies)
+}
+
+func Ranking(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	type stats struct {
+		u *tgbotapi.User
+		w int
+	}
+	M := make(map[string]*stats)
+	for s, u := range allUsers {
+		M[strings.ToLower(s)] = &stats{u, 0}
+	}
+	for _, m := range movies {
+		for _, w := range m.WatchedBy {
+			if s, e := M[strings.ToLower(w)]; e {
+				s.w++
+			}
+		}
+	}
+	for _, m := range watched_movies {
+		for _, w := range m.WatchedBy {
+			if s, e := M[strings.ToLower(w)]; e {
+				s.w++
+			}
+		}
+	}
+	n := len(M)
+	S := make([]*stats, n)
+	var i int
+	for _, s := range M {
+		S[i] = s
+		i++
+	}
+	sort.Slice(S, func(i, j int) bool {
+		return S[i].w > S[j].w
+	})
+	t := "Ranking of number of watched movies:\n"
+	for i, s := range S {
+		t += fmt.Sprintf("  %d. %s (%d)\n", i+1, s.u.UserName, s.w)
+	}
+	msg := tgbotapi.NewMessage(u.Message.Chat.ID, t)
+	msg.ReplyToMessageID = u.Message.MessageID
+	bot.Send(msg)
 }

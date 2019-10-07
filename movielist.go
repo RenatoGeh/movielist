@@ -28,6 +28,7 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		"  `/watched username`: prints list of movies watched by username\n" +
 		"  `/draw n=1`: draws n movies at random (default n=1)\n" +
 		"  `/save`: force save everything\n" +
+		"  `/ranking`: shows top movie-watchers\n" +
 		"**Important:** before `/add`-ing, `/query` first to make sure it's the right movie!"
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
@@ -77,6 +78,9 @@ func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		case CmdSave:
 			log.Printf("Command /save activated")
 			Save(bot, u)
+		case CmdRanking:
+			log.Printf("Command /rank activated")
+			Ranking(bot, u)
 		}
 	}
 	gcIterations++
