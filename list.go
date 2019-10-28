@@ -25,6 +25,7 @@ var (
 	movies         []Entry
 	undo_movies    []Entry
 	watched_movies []Entry
+	last_query	   string
 )
 
 const (
@@ -67,6 +68,9 @@ func AddEntry(e *Entry) int {
 
 func Add(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	query := u.Message.CommandArguments()
+	if query == "" {
+		query = last_query
+	}
 	e := Retrieve(query)
 	if e == nil {
 		return
@@ -160,6 +164,7 @@ send:
 
 func Query(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	q := u.Message.CommandArguments()
+	last_query = q
 	preview(bot, u, Retrieve(q))
 }
 
