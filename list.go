@@ -21,13 +21,6 @@ type Entry struct {
 	WatchedBy []string
 }
 
-var (
-	movies         []Entry
-	undo_movies    []Entry
-	watched_movies []Entry
-	last_query	   string
-)
-
 const (
 	CmdAll     = "all"
 	CmdShow    = "show"
@@ -47,8 +40,8 @@ const maxImageSize = 5000000
 
 const imdbPreamble = "https://www.imdb.com/title/"
 
-func containsMovie(e *Entry) bool {
-	for _, m := range movies {
+func containsMovie(e *Entry, c []Entry) bool {
+	for _, m := range c {
 		if e.Title == m.Title && e.Year == m.Year {
 			return true
 		}
@@ -56,26 +49,27 @@ func containsMovie(e *Entry) bool {
 	return false
 }
 
-func AddEntry(e *Entry) int {
-	if !containsMovie(e) {
-		movies = append(movies, *e)
-		saveMovies()
-		return len(movies) - 1
+func AddEntry(e *Entry, u *tgbotapi.Update) int {
+	if C := chat(u); !containsMovie(e, C.movies) {
+		C.movies = append(C.movies, *e)
+		saveMovies(C)
+		return len(C.movies) - 1
 	} else {
 		return -1
 	}
 }
 
 func Add(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
+	C := chat(u)
 	query := u.Message.CommandArguments()
 	if query == "" {
-		query = last_query
+		query = C.lastQuery
 	}
 	e := Retrieve(query)
 	if e == nil {
 		return
 	}
-	if AddEntry(e) < 0 {
+	if AddEntry(e, u) < 0 {
 		msg := tgbotapi.NewMessage(u.Message.Chat.ID, "Movie is already in our to-watch list!")
 		msg.ReplyToMessageID = u.Message.MessageID
 		bot.Send(msg)
@@ -86,11 +80,12 @@ func Add(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 
 func All(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	var s string
-	if len(movies) == 0 {
+	C := chat(u)
+	if len(C.movies) == 0 {
 		s = "Movie list is empty! Start adding movies with /add!"
 	} else {
 		s = "To-watch movie list:\n"
-		for i, m := range movies {
+		for i, m := range C.movies {
 			s += fmt.Sprintf("  %d. %s (%d)\n", i, m.Title, m.Year)
 		}
 		s += "`/show i` - shows more information on the `i`-th movie."
@@ -101,16 +96,16 @@ func All(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	bot.Send(msg)
 }
 
-func getMovie(s string) (int, *Entry) {
+func getMovie(s string, C *Chat) (int, *Entry) {
 	i, err := strconv.Atoi(s)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return 0, nil
 	}
-	if i < 0 || i >= len(movies) {
+	if i < 0 || i >= len(C.movies) {
 		return 0, nil
 	}
-	return i, &movies[i]
+	return i, &C.movies[i]
 }
 
 func preview(bot *tgbotapi.BotAPI, u *tgbotapi.Update, m *Entry) {
@@ -164,15 +159,17 @@ send:
 
 func Query(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	q := u.Message.CommandArguments()
-	last_query = q
+	C := chat(u)
+	C.lastQuery = q
 	preview(bot, u, Retrieve(q))
 }
 
 func Show(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
-	if len(movies) == 0 {
+	C := chat(u)
+	if len(C.movies) == 0 {
 		return
 	}
-	_, m := getMovie(u.Message.CommandArguments())
+	_, m := getMovie(u.Message.CommandArguments(), C)
 	if m == nil {
 		return
 	}
@@ -180,17 +177,18 @@ func Show(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 }
 
 func Remove(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
-	i, m := getMovie(u.Message.CommandArguments())
+	C := chat(u)
+	i, m := getMovie(u.Message.CommandArguments(), C)
 	if m == nil {
 		return
 	}
-	r := movies[i]
-	movies = append(movies[:i], movies[i+1:]...)
+	r := C.movies[i]
+	C.movies = append(C.movies[:i], C.movies[i+1:]...)
 	s := fmt.Sprintf("Removing %s (%d) from movie list...", r.Title, r.Year)
 	msg := tgbotapi.NewMessage(u.Message.Chat.ID, s)
 	msg.ReplyToMessageID = u.Message.MessageID
 	bot.Send(msg)
-	saveMovies()
+	saveMovies(C)
 }
 
 func extractIndices(whole string) ([]int, error) {
@@ -207,20 +205,21 @@ func extractIndices(whole string) ([]int, error) {
 	return L, nil
 }
 
-func checkWatched() string {
+func checkWatched(u *tgbotapi.Update) string {
 	var msg string
 	var nlist []Entry
-	undo_movies = []Entry{}
-	for _, m := range movies {
-		if len(m.WatchedBy) >= len(allUsers) {
+	C := chat(u)
+	C.undoMovies = []Entry{}
+	for _, m := range C.movies {
+		if len(m.WatchedBy) >= len(C.allUsers) {
 			msg += fmt.Sprintf("  %s (%d)\n", m.Title, m.Year)
-			undo_movies = append(undo_movies, m)
-			watched_movies = append(watched_movies, m)
+			C.undoMovies = append(C.undoMovies, m)
+			C.watchedMovies = append(C.watchedMovies, m)
 		} else {
 			nlist = append(nlist, m)
 		}
 	}
-	movies = nlist
+	C.movies = nlist
 	if msg != "" {
 		msg = fmt.Sprintf("I've removed the following movies because everyone has watched them!\n%s"+
 			"To undo these changes, tell me to `/restore`.", msg)
@@ -235,10 +234,11 @@ func Watch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		return
 	}
 	var change bool
+	C := chat(u)
 	for _, w := range W {
-		if w >= 0 && w < len(movies) {
+		if w >= 0 && w < len(C.movies) {
 			var in bool
-			L := movies[w].WatchedBy
+			L := C.movies[w].WatchedBy
 			for _, name := range L {
 				if name == usr {
 					in = true
@@ -246,20 +246,20 @@ func Watch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 				}
 			}
 			if !in {
-				movies[w].WatchedBy = append(movies[w].WatchedBy, usr)
+				C.movies[w].WatchedBy = append(C.movies[w].WatchedBy, usr)
 				change = true
 			}
 		}
 	}
 	if change {
-		if c := checkWatched(); c != "" {
+		if c := checkWatched(u); c != "" {
 			msg := tgbotapi.NewMessage(u.Message.Chat.ID, c)
 			msg.ReplyToMessageID = u.Message.MessageID
 			msg.ParseMode = tgbotapi.ModeMarkdown
 			bot.Send(msg)
 		}
 	}
-	saveMovies()
+	saveMovies(C)
 }
 
 func Unwatch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
@@ -268,9 +268,10 @@ func Unwatch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	if err != nil {
 		return
 	}
+	C := chat(u)
 	for _, w := range W {
-		if w >= 0 && w < len(movies) {
-			m := &movies[w]
+		if w >= 0 && w < len(C.movies) {
+			m := &C.movies[w]
 			i := -1
 			for j, watcher := range m.WatchedBy {
 				if watcher == usr {
@@ -286,29 +287,30 @@ func Unwatch(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 }
 
 func Restore(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
-	if undo_movies != nil {
-		for _, m := range undo_movies {
+	if C := chat(u); C.undoMovies != nil {
+		for _, m := range C.undoMovies {
 			m.WatchedBy = []string{}
-			movies = append(movies, m)
+			C.movies = append(C.movies, m)
 		}
-		watched_movies = append(watched_movies[:len(watched_movies)-len(undo_movies)])
-		undo_movies = nil
-		saveMovies()
+		C.watchedMovies = append(C.watchedMovies[:len(C.watchedMovies)-len(C.undoMovies)])
+		C.undoMovies = nil
+		saveMovies(C)
 	}
 }
 
 func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	var s string
+	C := chat(u)
 	if u.Message.CommandArguments() != "" {
 		uname := ToUsername(u)
-		_, e := User(uname)
+		_, e := C.User(uname)
 		if !e {
 			s = fmt.Sprintf("I don't know who %s is!", uname)
 			goto send
 		}
 		s = fmt.Sprintf("Movies watched by %s still in the to-watch list:\n", uname)
 		var c int
-		for i, m := range movies {
+		for i, m := range C.movies {
 			for _, w := range m.WatchedBy {
 				if strings.ToLower(w) == uname {
 					s += fmt.Sprintf("  %d. %s (%d) {%d}\n", c, m.Title, m.Year, i)
@@ -319,7 +321,7 @@ func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		}
 		s += fmt.Sprintf("Movies watched by %s in the watched list:\n", uname)
 		var d int
-		for _, m := range watched_movies {
+		for _, m := range C.watchedMovies {
 			for _, w := range m.WatchedBy {
 				if strings.ToLower(w) == uname {
 					s += fmt.Sprintf("  %d. %s (%d)\n", d, m.Title, m.Year)
@@ -331,11 +333,11 @@ func Watched(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		s += fmt.Sprintf("Total movies watched: %d", c+d)
 		goto send
 	}
-	if len(watched_movies) == 0 {
+	if len(C.watchedMovies) == 0 {
 		s = "You have not watched any movies yet! :("
 	} else {
 		s = "Watched movie list:\n"
-		for i, m := range watched_movies {
+		for i, m := range C.watchedMovies {
 			s += fmt.Sprintf("  %d. %s (%d)\n", i, m.Title, m.Year)
 		}
 	}
@@ -359,8 +361,9 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	} else {
 		n = 1
 	}
-	if n > len(movies) {
-		n = len(movies)
+	C := chat(u)
+	if n > len(C.movies) {
+		n = len(C.movies)
 	}
 	type entryIndex struct {
 		e Entry
@@ -370,10 +373,10 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	G := make(map[int]bool)
 	for i := 0; i < n; i++ {
 		for {
-			k := rand.Intn(len(movies))
+			k := rand.Intn(len(C.movies))
 			if _, e := G[k]; !e {
 				G[k] = true
-				M = append(M, entryIndex{movies[k], k})
+				M = append(M, entryIndex{C.movies[k], k})
 				break
 			}
 		}
@@ -394,8 +397,9 @@ func Draw(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 }
 
 func Save(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
-	saveMovies()
-	saveUsers()
+	C := chat(u)
+	saveMovies(C)
+	saveUsers(C)
 }
 
 func saveList(filename string, list []Entry) {
@@ -416,10 +420,10 @@ func saveList(filename string, list []Entry) {
 	}
 }
 
-func saveMovies() {
-	saveList("movies.json", movies)
-	saveList("watched.json", watched_movies)
-	saveList("undo.json", undo_movies)
+func saveMovies(C *Chat) {
+	saveList(C.prefix+"movies.json", C.movies)
+	saveList(C.prefix+"watched.json", C.watchedMovies)
+	saveList(C.prefix+"undo.json", C.undoMovies)
 }
 
 func loadList(filename string, list *[]Entry) {
@@ -448,10 +452,11 @@ func loadList(filename string, list *[]Entry) {
 	}
 }
 
-func loadMovies() {
-	loadList("movies.json", &movies)
-	loadList("watched.json", &watched_movies)
-	loadList("undo.json", &undo_movies)
+func loadMovies(u *tgbotapi.Update) {
+	C := chat(u)
+	loadList(C.prefix+"movies.json", &C.movies)
+	loadList(C.prefix+"watched.json", &C.watchedMovies)
+	loadList(C.prefix+"undo.json", &C.undoMovies)
 }
 
 func Ranking(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
@@ -460,17 +465,18 @@ func Ranking(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 		w int
 	}
 	M := make(map[string]*stats)
-	for s, u := range allUsers {
+	C := chat(u)
+	for s, u := range C.allUsers {
 		M[strings.ToLower(s)] = &stats{u, 0}
 	}
-	for _, m := range movies {
+	for _, m := range C.movies {
 		for _, w := range m.WatchedBy {
 			if s, e := M[strings.ToLower(w)]; e {
 				s.w++
 			}
 		}
 	}
-	for _, m := range watched_movies {
+	for _, m := range C.watchedMovies {
 		for _, w := range m.WatchedBy {
 			if s, e := M[strings.ToLower(w)]; e {
 				s.w++

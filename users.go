@@ -9,19 +9,18 @@ import (
 	"strings"
 )
 
-var allUsers = make(map[string]*tgbotapi.User)
-
 func RegisterUser(u *tgbotapi.Update) {
+	C := chat(u)
 	usr := strings.ToLower(u.Message.From.UserName)
-	_, e := allUsers[usr]
+	_, e := C.allUsers[usr]
 	if !e {
-		allUsers[usr] = u.Message.From
-		saveUsers()
+		C.allUsers[usr] = u.Message.From
+		saveUsers(C)
 	}
 }
 
-func User(username string) (*tgbotapi.User, bool) {
-	u, e := allUsers[username]
+func (C *Chat) User(username string) (*tgbotapi.User, bool) {
+	u, e := C.allUsers[username]
 	return u, e
 }
 
@@ -35,14 +34,14 @@ func ToUsername(u *tgbotapi.Update) string {
 	return s
 }
 
-func saveUsers() {
-	f, err := os.Create("users.json")
+func saveUsers(C *Chat) {
+	f, err := os.Create(C.prefix + "users.json")
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
 	defer f.Close()
-	b, err := json.Marshal(allUsers)
+	b, err := json.Marshal(C.allUsers)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -53,8 +52,8 @@ func saveUsers() {
 	}
 }
 
-func loadUsers() {
-	f, err := os.Open("users.json")
+func loadUsers(C *Chat) {
+	f, err := os.Open(C.prefix + "users.json")
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -73,7 +72,7 @@ func loadUsers() {
 		log.Printf("Error: %v", err)
 		return
 	}
-	err = json.Unmarshal(b, &allUsers)
+	err = json.Unmarshal(b, &C.allUsers)
 	if err != nil {
 		log.Printf("Error: %v", err)
 	}
