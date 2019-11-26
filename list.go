@@ -146,7 +146,8 @@ send:
 		log.Printf("Sending cover by URL.")
 		msg = tgbotapi.NewPhotoShare(u.Message.Chat.ID, scover)
 	}
-	msg.Caption = fmt.Sprintf("%s (%d)\nIMDb: %s%s", m.Title, m.Year, imdbPreamble, m.ID)
+	turl := imdbPreamble + m.ID
+	msg.Caption = fmt.Sprintf("%s (%d)\nRating: %.1f/10.0\nIMDb: %s", m.Title, m.Year, Rating(turl), turl)
 	if len(m.WatchedBy) != 0 {
 		msg.Caption += fmt.Sprintf("\nWatched by (%d):", len(m.WatchedBy))
 		for _, usr := range m.WatchedBy {

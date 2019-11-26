@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -8,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -88,4 +91,25 @@ func Retrieve(query string) *Entry {
 		return nil
 	}
 	return convert(string(cnt))
+}
+
+func Rating(url string) float64 {
+	log.Printf("Fetching rating...")
+	r, err := http.Get(url)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return -1
+	}
+	defer r.Body.Close()
+	R := regexp.MustCompile(`"ratingValue": "(\d\.\d+)"`)
+	b := new(bytes.Buffer)
+	b.ReadFrom(r.Body)
+	M := R.FindStringSubmatch(b.String())
+	rv, err := strconv.ParseFloat(M[1], 64)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return -1
+	}
+	log.Printf("Rating: %.1f/10.0", rv)
+	return rv
 }
