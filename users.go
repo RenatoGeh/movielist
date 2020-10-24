@@ -77,3 +77,16 @@ func loadUsers(C *Chat) {
 		log.Printf("Error: %v", err)
 	}
 }
+
+func RemoveLeavers(u *tgbotapi.Update) {
+	user := u.Message.LeftChatMember
+	if user != nil {
+		C := chat(u)
+		uname := strings.ToLower(user.UserName)
+		_, e := C.allUsers[uname]
+		if e {
+			delete(C.allUsers, uname)
+			saveUsers(C)
+		}
+	}
+}

@@ -39,6 +39,7 @@ func Help(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 func loop(bot *tgbotapi.BotAPI, u *tgbotapi.Update) {
 	fmt.Printf("[%s|%s] %s\n", u.Message.Chat.Title, u.Message.From.UserName, u.Message.Text)
 	RegisterUser(u)
+	RemoveLeavers(u)
 	if u.Message.IsCommand() {
 		cmd := u.Message.Command()
 		switch cmd {
